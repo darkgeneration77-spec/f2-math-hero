@@ -1,0 +1,22 @@
+(()=>{"use strict";
+const PROFILE_KEY="f2math_v50_profiles",ACTIVE_KEY="f2math_v50_active_student";
+const $=s=>document.querySelector(s);
+const MISSIONS=[
+{id:"answer-5",name:"Warm-Up Warrior",desc:"Answer 5 questions today.",goal:5,rewardXp:20,rewardCoins:5,value:p=>p.daily?.attempts||0},
+{id:"correct-3",name:"Sharp Mind",desc:"Answer 3 questions correctly today.",goal:3,rewardXp:25,rewardCoins:8,value:p=>p.daily?.correct||0},
+{id:"combo-3",name:"Combo Starter",desc:"Reach a 3-answer combo today.",goal:3,rewardXp:30,rewardCoins:10,value:p=>p.daily?.bestCombo||0},
+{id:"boss-1",name:"Boss Hunter",desc:"Defeat 1 boss today.",goal:1,rewardXp:50,rewardCoins:15,value:p=>p.daily?.bossWins||0}
+];
+function dateKey(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kuala_Lumpur",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
+function allProfiles(){try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||"{}")||{}}catch{return {}}}
+function activeProfile(){const name=localStorage.getItem(ACTIVE_KEY),all=allProfiles();return name?all[name]||null:null}
+function saveProfile(p){const all=allProfiles();all[p.name]=p;localStorage.setItem(PROFILE_KEY,JSON.stringify(all))}
+function ensureDaily(p){const today=dateKey();if(!p.daily||p.daily.date!==today)p.daily={date:today,attempts:0,correct:0,bestCombo:0,bossWins:0,claimed:{},snapshot:{attempts:p.stats?.attempts||0,correct:p.stats?.correct||0,bossWins:Object.values(p.bossWins||{}).filter(Boolean).length}};p.daily.claimed||={};p.daily.snapshot||={attempts:p.stats?.attempts||0,correct:p.stats?.correct||0,bossWins:Object.values(p.bossWins||{}).filter(Boolean).length};return p.daily}
+function sync(p){const d=ensureDaily(p),attempts=p.stats?.attempts||0,correct=p.stats?.correct||0,bosses=Object.values(p.bossWins||{}).filter(Boolean).length,combo=Number($("#comboValue")?.textContent||0);d.attempts=Math.max(d.attempts||0,attempts-(d.snapshot.attempts||0));d.correct=Math.max(d.correct||0,correct-(d.snapshot.correct||0));d.bossWins=Math.max(d.bossWins||0,bosses-(d.snapshot.bossWins||0));d.bestCombo=Math.max(d.bestCombo||0,combo);saveProfile(p)}
+function render(){const p=activeProfile();if(!p)return;sync(p);const d=ensureDaily(p);const completed=MISSIONS.filter(m=>m.value(p)>=m.goal).length;$("#missionSummary").textContent=`${completed}/${MISSIONS.length} completed today · Resets daily`;
+$("#missionGrid").innerHTML=MISSIONS.map(m=>{const value=Math.min(m.value(p),m.goal),done=value>=m.goal,claimed=!!d.claimed[m.id],pct=Math.min(100,value/m.goal*100);return `<article class="mission-card ${done?'completed':''}"><div class="mission-top"><strong>${m.name}</strong><span>${done?'Completed':'In progress'}</span></div><p>${m.desc}</p><div class="mission-track"><div style="width:${pct}%"></div></div><small>${value}/${m.goal} · +${m.rewardXp} XP · +${m.rewardCoins} coins</small><button class="btn ${claimed?'secondary':''}" data-mission-claim="${m.id}" ${!done||claimed?'disabled':''}>${claimed?'Claimed':'Claim Reward'}</button></article>`}).join("");document.querySelectorAll("[data-mission-claim]").forEach(b=>b.addEventListener("click",()=>claim(b.dataset.missionClaim)))}
+function claim(id){const p=activeProfile(),m=MISSIONS.find(x=>x.id===id);if(!p||!m)return;sync(p);const d=ensureDaily(p);if(m.value(p)<m.goal||d.claimed[id])return;p.xp=(p.xp||0)+m.rewardXp;p.coins=(p.coins||0)+m.rewardCoins;d.claimed[id]=true;saveProfile(p);if($("#playerXp"))$("#playerXp").textContent=p.xp;if($("#playerCoins"))$("#playerCoins").textContent=p.coins;render()}
+function open(){render();["loginView","lobbyView","gameView","wrongBookView","heroView","petView","achievementView"].forEach(id=>$("#"+id)?.classList.add("hidden"));$("#missionView")?.classList.remove("hidden")}
+function back(){$("#missionView")?.classList.add("hidden");$("#lobbyView")?.classList.remove("hidden")}
+window.addEventListener("DOMContentLoaded",()=>{$("#missionBtn")?.addEventListener("click",open);$("#missionBackBtn")?.addEventListener("click",back);const target=$("#comboValue");if(target)new MutationObserver(()=>{const p=activeProfile();if(p)sync(p)}).observe(target,{childList:true,characterData:true,subtree:true});setInterval(()=>{const p=activeProfile();if(p)sync(p)},1200)})
+})();

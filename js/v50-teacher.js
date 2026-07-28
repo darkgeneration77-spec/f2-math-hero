@@ -1,0 +1,16 @@
+(()=>{"use strict";
+const KEY="f2math_v50_profiles",ACTIVE_KEY="f2math_v50_active_student";
+const $=s=>document.querySelector(s);
+let previousView="loginView";
+function allProfiles(){try{return JSON.parse(localStorage.getItem(KEY)||"{}")||{}}catch{return {}}}
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function chapterCount(p){return Object.values(p.bossWins||{}).filter(Boolean).length}
+function accuracy(p){const c=p.stats?.correct||0,w=p.stats?.wrong||0,total=c+w;return total?Math.round(c/total*100):0}
+function rows(){return Object.values(allProfiles()).sort((a,b)=>(b.xp||0)-(a.xp||0))}
+function render(){const list=rows();$("#teacherSummary").textContent=`${list.length} student${list.length===1?"":"s"} stored on this device`;$("#teacherTableWrap").innerHTML=list.length?`<table class="teacher-table"><thead><tr><th>Student</th><th>XP</th><th>Coins</th><th>Correct</th><th>Wrong</th><th>Accuracy</th><th>Bosses</th><th>Wrong Book</th><th>Hero Lv.</th><th>Pet Lv.</th></tr></thead><tbody>${list.map(p=>`<tr><td>${esc(p.name)}</td><td>${p.xp||0}</td><td>${p.coins||0}</td><td>${p.stats?.correct||0}</td><td>${p.stats?.wrong||0}</td><td>${accuracy(p)}%</td><td>${chapterCount(p)}/13</td><td>${p.wrongBook?.length||0}</td><td>${p.heroLevel||1}</td><td>${p.petLevel||1}</td></tr>`).join("")}</tbody></table>`:`<div class="empty-state">No student records on this device yet.</div>`}
+function open(){previousView=$("#lobbyView")&&!$("#lobbyView").classList.contains("hidden")?"lobbyView":"loginView";["loginView","lobbyView","gameView","wrongBookView","heroView","petView","achievementView","missionView"].forEach(id=>$("#"+id)?.classList.add("hidden"));$("#teacherView")?.classList.remove("hidden");render()}
+function back(){$("#teacherView")?.classList.add("hidden");$("#"+previousView)?.classList.remove("hidden")}
+function csv(){const list=rows(),head=["Student","XP","Coins","Correct","Wrong","Accuracy","Bosses Defeated","Wrong Book","Hero Level","Pet Level"],data=[head,...list.map(p=>[p.name,p.xp||0,p.coins||0,p.stats?.correct||0,p.stats?.wrong||0,accuracy(p)+"%",chapterCount(p),p.wrongBook?.length||0,p.heroLevel||1,p.petLevel||1])];const text=data.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n"),blob=new Blob(["\ufeff"+text],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`f2-math-hero-students-${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function clearAll(){if(!confirm("Clear every student record stored on this device? This cannot be undone."))return;localStorage.removeItem(KEY);localStorage.removeItem(ACTIVE_KEY);render()}
+window.addEventListener("DOMContentLoaded",()=>{$("#teacherBtn")?.addEventListener("click",open);$("#teacherLobbyBtn")?.addEventListener("click",open);$("#teacherBackBtn")?.addEventListener("click",back);$("#exportTeacherBtn")?.addEventListener("click",csv);$("#resetTeacherBtn")?.addEventListener("click",clearAll)})
+})();
